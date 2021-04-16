@@ -1,0 +1,13 @@
+Формула: x2 ⊕ y2 ⊕ x0 ∧ y0 ∧ (x1 ⊕ y1) ⊕ x1 ∧ y1
+Порядок переменных: x0 < y0 < x1 < y1 < x2 < y2
+
+
+Apply(x2 ⊕ y2 ⊕ x0 ∧ y0 ∧ (x1 ⊕ y1) ⊕ x1 ∧ y1)  = Reduce(Compose(x0, Apply(x2 ⊕ y2 ⊕ y0 ∧ (x1 ⊕ y1) ⊕ x1 ∧ y1), Apply(x2 ⊕ y2 ⊕ x1 ∧ y1)))
+Apply(x2 ⊕ y2 ⊕ y0 ∧ (x1 ⊕ y1) ⊕ x1 ∧ y1)       = Reduce(Compose(y0, Apply(x2 ⊕ y2 ⊕ x1 ⊕ y1 ⊕ x1 ∧ y1), Apply(x2 ⊕ y2 ⊕ x1 ∧ y1)))
+Apply(x2 ⊕ y2 ⊕ x1 ⊕ y1 ⊕ x1 ∧ y1)              = Reduce(Compose(x1, Apply(x2 ≡ y2), Apply(x2 ⊕ y2 ⊕ y1)))
+Apply(x2 ≡ y2)                                  = Reduce(Compose(x2, Apply(y2), Apply(¬y2)))
+Apply(y2)                                       = Reduce(Compose(y2, [1], [0]))
+Apply(¬y2)                                      = Reduce(Compose(y2, [0], [1]))
+Apply(x2 ⊕ y2 ⊕ y1)                             = Reduce(Compose(y1, Apply(x2 ≡ y2), Apply(x2 ⊕ y2)))
+Apply(x2 ⊕ y2)                                  = Reduce(Compose(x2, Apply(¬y2), Apply(y2)))
+Apply(x2 ⊕ y2 ⊕ x1 ∧ y1)                        = Reduce(Compose(x1, Apply(x2 ⊕ y2 ⊕ y1), Apply(x2 ⊕ y2)))
