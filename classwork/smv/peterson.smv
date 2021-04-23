@@ -1,0 +1,53 @@
+MODULE p(i, flag0, flag1, turn, exec)
+    VAR
+        state: { NCS, SET, SET1, TST, CRS, RST, RST1 };
+
+    ASSIGN
+        init(state) := NCS;
+        next(state) :=  case
+                            !exec           : state;
+                            state = NCS     : SET;
+                            state = SET     : SET1;
+                            state = SET1    : TST;
+                            state = TST & (flag1 & turn = i)    : TST;
+                            state = TST     : CRS; 
+                            state = CRS     : RST;
+                            state = RST     : RST1;
+                            state = RST1    : NCS;
+                        esac;
+        next(flag0) :=  case
+                            exec & state = SET  : TRUE;
+                            TRUE                : flag0;
+                        esac;
+
+                            
+
+MODULE main
+    VAR 
+        flag: array 0..1 of boolean;
+        turn: word[1];
+        exec: word[1];
+        p0: p(0ub1_0, flag[0], flag[1], turn, exec0);
+        p1: p(0ub1_1, flag[1], flag[0], turn, exec1);
+    
+    ASSIGN
+        init(flag[0]) := FALSE;
+        init(flag[1]) := FALSE;
+        init(turn) := 0ub1_0;
+
+        next(turn) :=   case
+                            exec0 & p0.state = SET1 : 0ub1_0;
+                            exec1 & p1.state = SET1 : 0ub1_1;
+                            TRUE                    : turn;  
+                        esac;
+
+    DEFINE
+        exec0 := (exec = 0ub1_0);
+        exec1 := (exec = 0ub1_1);
+
+    JUSTICE exec0 -- GF(exec0)
+    JUSTICE exec1 -- GF(exec1)
+
+    LTLSPEC G(!(p0.state = CRS & p1.state = CRS));
+    LTLSPEC G((p0.state = SET -> F(p0.state = CRS)));
+    LTLSPEC G((p1.state = SET -> F(p1.state = CRS)));

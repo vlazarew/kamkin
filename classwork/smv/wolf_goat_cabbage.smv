@@ -1,0 +1,23 @@
+MODULE main
+    VAR
+        boat: boolean;
+        wolf: boolean;
+        goat: boolean;
+        cabb: boolean;
+    
+    ASSIGN
+        init(boat) := FALSE;
+        init(wolf) := FALSE;
+        init(goat) := FALSE;
+        init(cabb) := FALSE;
+
+        next(boat) := !boat;
+
+    DEFINE
+        safe := !((wolf = goat & wolf != boat) | (goat = cabb & goat != boat));
+
+    TRANS
+        count(wolf != next(wolf), goat != next(goat), cabb != next(cabb)) <= 1;
+
+    LTLSPEC
+        !(safe U (boat & wolf & goat & cabb));
