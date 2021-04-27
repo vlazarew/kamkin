@@ -52,9 +52,41 @@ void updateFormulaMap(const Formula &formula, vector<pair<Formula::Kind, string>
     }
 }
 
+void simplifyFormula(const Formula &formula) {
+    if (&formula == nullptr) {
+        return;
+    }
+
+    if (&formula.lhs() != nullptr) {
+        simplifyFormula(formula.lhs());
+    }
+
+    if (&formula.rhs() != nullptr) {
+        simplifyFormula(formula.rhs());
+    }
+
+    if (formula.kind() == Formula::IMPL) {
+        int i = 1;
+//        formula.lhs() = !(formula.lhs());
+//        formula.lhs(). = &a;
+        Formula a = formula.lhs().operator!();
+        const Formula &b = a.operator||(formula.rhs());
+//        formula = b;
+        auto *p = const_cast<Formula *>(&formula);
+        const Formula *pb = &b;
+//        formula = &pb;
+//        p = pb;
+        &formula = reinterpret_cast<const Formula *>(p);
+        int j = 1;
+    }
+
+
+}
+
 void createCopyFormula(const Formula &formula) {
     vector<pair<Formula::Kind, string>> formulaMap;
-    updateFormulaMap(formula, formulaMap);
+//    updateFormulaMap(formula, formulaMap);
+    simplifyFormula(formula);
     int i = 1;
 //    return formula.kind();
 }
