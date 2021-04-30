@@ -15,8 +15,9 @@
 #pragma once
 
 #include <iostream>
-#include <map>
 #include <set>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace model {
@@ -24,7 +25,8 @@ namespace model {
 
         class State final {
         public:
-            State(const std::string &label) : _label(label) {}
+            State(const std::string &label, bool init = false, int finish = -1) :
+                    _label(label), _initial(init), _final(finish) {}
 
             bool operator==(const State &rhs) const {
                 return _label == rhs._label;
@@ -32,8 +34,19 @@ namespace model {
 
             std::string label() const { return _label; }
 
+            bool is_initial() const { return _initial; }
+
+            bool is_final() const { return _final >= 0; }
+
+            int final_set() const { return _final; }
+
         private:
             const std::string _label;
+
+            // Initial state flag.
+            const bool _initial;
+            // Acceptance set index (unless negative).
+            const int _final;
         };
 
         std::ostream &operator<<(std::ostream &out, const State &state) {
@@ -43,7 +56,7 @@ namespace model {
         class Transition final {
         public:
             Transition(const State &source, const std::set<std::string> &symbol, const State &target) :
-                    _source(source), _target(target), _symbol(symbol) {}
+                    _source(source), _symbol(symbol), _target(target) {}
 
             bool operator==(const Transition &rhs) const {
                 return _source == rhs._source
@@ -69,7 +82,10 @@ namespace model {
 
             bool separator = false;
             for (auto i = transition.symbol().begin(); i != transition.symbol().end(); i++) {
-                out << (separator ? ", " : "") << *i;
+                if (separator) {
+                    out << ", ";
+                }
+                out << *i;
                 separator = true;
             }
 
@@ -80,16 +96,13 @@ namespace model {
         }
 
         class Automaton final {
+        public:
+            Automaton() :
+                    _trans(1024) {}
+
             friend std::ostream &operator<<(std::ostream &out, const Automaton &automaton);
 
-        public:
-            Automaton() {}
-
-            void add_state(const std::string &state_label);
-
-            void set_initial(const std::string &state_label);
-
-            void set_final(const std::string &state_label, unsigned final_set_index);
+            void add_state(const std::string &label, bool init = false, int finish = -1);
 
             void add_trans(
                     const std::string &source,
@@ -98,23 +111,13 @@ namespace model {
             );
 
         private:
-            std::map<std::string, State> _states;
-            std::set<std::string> _initial_states;
-            std::map<unsigned, std::set<std::string>> _final_states;
-            std::map<std::string, std::vector<Transition>> _transitions;
+            std::unordered_map<std::string, State> _states;
+            std::unordered_map<std::string, std::vector<Transition>> _trans;
         };
 
-        inline void Automaton::add_state(const std::string &state_label) {
-            State state(state_label);
-            _states.insert({state_label, state});
-        }
-
-        inline void Automaton::set_initial(const std::string &state_label) {
-            _initial_states.insert(state_label);
-        }
-
-        inline void Automaton::set_final(const std::string &state_label, unsigned final_set_index) {
-            _final_states[final_set_index].insert(state_label);
+        inline void Automaton::add_state(const std::string &label, bool init, int finish) {
+            State state(label, init, finish);
+            _states.insert({label, state});
         }
 
         inline void Automaton::add_trans(
@@ -126,37 +129,21 @@ namespace model {
             auto t = _states.find(target);
 
             Transition trans(s->second, symbol, t->second);
-            _transitions[source].push_back(trans);
+            _trans[source].push_back(trans);
         }
 
         std::ostream &operator<<(std::ostream &out, const Automaton &automaton) {
-            bool separator;
+            bool separator = false;
 
-            out << "S0 = {";
-            separator = false;
-            for (const auto &state: automaton._initial_states) {
-                out << (separator ? ", " : "") << state;
-            }
-            out << "}" << std::endl;
-
-            for (const auto &entry: automaton._final_states) {
-                out << "F" << entry.first << " = {";
-                separator = false;
-                for (const auto &state: entry.second) {
-                    out << (separator ? ", " : "") << state;
-                }
-                out << "}" << std::endl;
-            }
-
-            out << "T = {" << std::endl;
-            separator = false;
-            for (const auto &entry: automaton._transitions) {
-                for (const auto &transition: entry.second) {
-                    out << (separator ? "\n" : "") << "  " << transition;
+            for (auto i = automaton._trans.begin(); i != automaton._trans.end(); i++) {
+                for (auto j = i->second.begin(); j != i->second.end(); j++) {
+                    if (separator) {
+                        out << std::endl;
+                    }
+                    out << *j;
                     separator = true;
                 }
             }
-            out << std::endl << "}";
 
             return out;
         }

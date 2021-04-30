@@ -34,37 +34,90 @@ namespace model {
                 R     // Release: (A1 R A2)
             };
 
-            Formula operator !() const;
-            Formula operator &&(const Formula &rhs) const;
-            Formula operator ||(const Formula &rhs) const;
-            Formula operator >>(const Formula &rhs) const;
+            Formula operator!() const;
+
+            Formula operator&&(const Formula &rhs) const;
+
+            Formula operator||(const Formula &rhs) const;
+
+            Formula operator>>(const Formula &rhs) const;
+
+            Formula operator=(Formula other);
 
             friend Formula P(const std::string &prop);
+
             friend Formula X(const Formula &arg);
+
             friend Formula G(const Formula &arg);
+
             friend Formula F(const Formula &arg);
+
             friend Formula U(const Formula &lhs, const Formula &rhs);
+
             friend Formula R(const Formula &lhs, const Formula &rhs);
 
             Kind kind() const { return _kind; }
+
             std::string prop() const { return _prop; }
 
-            const Formula& arg() const { return *_lhs; }
-            const Formula& lhs() const { return *_lhs; }
-            const Formula& rhs() const { return *_rhs; }
+            const Formula &arg() const { return *_lhs; }
+
+            const Formula &lhs() const { return *_lhs; }
+
+            const Formula &rhs() const { return *_rhs; }
+
+            bool operator==(const Formula other) const {
+                if (this->kind() != other.kind())
+                    return false;
+                if (this->kind() == Formula::ATOM) {
+                    return this->prop() == other.prop();
+                }
+                if (this->kind() == Formula::X || this->kind() == Formula::G || this->kind() == Formula::F) {
+                    return this->lhs() == other.lhs();
+                } else {
+                    return (this->lhs() == other.lhs() && this->rhs() == other.rhs());
+                }
+            }
+
+            std::string toString() const {
+                switch (this->kind()) {
+                    case Formula::ATOM:
+                        return "(ATOM" + this->prop() + ")";
+                    case Formula::NOT:
+                        return "NOT(" + this->lhs().toString() + ")";
+                    case Formula::AND:
+                        return "(" + this->lhs().toString() + "AND" + this->rhs().toString() + ")";
+                    case Formula::OR:
+                        return "(" + this->lhs().toString() + "OR" + this->rhs().toString() + ")";
+                    case Formula::IMPL:
+                        return "(" + this->lhs().toString() + "IMPL" + this->rhs().toString() + ")";
+                    case Formula::X:
+                        return "X(" + this->lhs().toString() + ")";
+                    case Formula::G:
+                        return "G(" + this->lhs().toString() + ")";
+                    case Formula::F:
+                        return "F(" + this->lhs().toString() + ")";
+                    case Formula::U:
+                        return "(" + this->lhs().toString() + "U" + this->rhs().toString() + ")";
+                    case Formula::R:
+                        return "(" + this->lhs().toString() + "R" + this->rhs().toString() + ")";
+                };
+                return "";
+            }
 
         private:
-            Formula(Kind kind, const std::string &prop, const Formula *lhs, const Formula *rhs):
+            Formula(Kind kind, const std::string &prop, const Formula *lhs, const Formula *rhs) :
                     _kind(kind), _prop(prop), _lhs(lhs), _rhs(rhs) {}
 
-            Formula(const std::string &prop):
+            Formula(const std::string &prop) :
                     Formula(ATOM, prop, 0, 0) {}
 
-            Formula(Kind kind, const Formula *arg):
+            Formula(Kind kind, const Formula *arg) :
                     Formula(kind, "", arg, 0) {}
 
-            Formula(Kind kind, const Formula *lhs, const Formula *rhs):
+            Formula(Kind kind, const Formula *lhs, const Formula *rhs) :
                     Formula(kind, "", lhs, rhs) {}
+
 
             const Kind _kind;
             const std::string _prop;
@@ -72,20 +125,24 @@ namespace model {
             const Formula *_rhs;
         };
 
-        inline Formula Formula::operator !() const {
+        inline Formula Formula::operator!() const {
             return Formula(NOT, this);
         }
 
-        inline Formula Formula::operator &&(const Formula &rhs) const {
+        inline Formula Formula::operator&&(const Formula &rhs) const {
             return Formula(AND, this, &rhs);
         }
 
-        inline Formula Formula::operator ||(const Formula &rhs) const {
+        inline Formula Formula::operator||(const Formula &rhs) const {
             return Formula(OR, this, &rhs);
         }
 
-        inline Formula Formula::operator >>(const Formula &rhs) const {
+        inline Formula Formula::operator>>(const Formula &rhs) const {
             return Formula(IMPL, this, &rhs);
+        }
+
+        inline Formula Formula::operator=(Formula other) {
+            return Formula(this->kind(), this->prop(), &this->rhs(), &this->lhs());
         }
 
         inline Formula P(const std::string &prop) {
@@ -112,7 +169,7 @@ namespace model {
             return Formula(Formula::R, &lhs, &rhs);
         }
 
-        std::ostream& operator <<(std::ostream &out, const Formula &formula) {
+        std::ostream &operator<<(std::ostream &out, const Formula &formula) {
             switch (formula.kind()) {
                 case Formula::ATOM:
                     return out << formula.prop();
@@ -139,5 +196,5 @@ namespace model {
             return out;
         }
 
-    }} // namespace model::ltl
-
+    }
+} // namespace model::ltl
