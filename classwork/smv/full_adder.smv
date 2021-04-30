@@ -1,0 +1,27 @@
+MODULE full_adder(z, x, y, c_in)
+    ASSIGN
+        z := x xor y xor c_in;
+
+    DEFINE
+        c_out := x & y | (x xor y) & c_in;
+
+
+MODULE ripple_carry_adder(z, x, y)
+    VAR
+        add0: full_adder(z[0], x[0], y[0], FALSE);
+        add1: full_adder(z[1], x[1], y[1], add0.c_out);
+        add2: full_adder(z[2], x[2], y[2], add1.c_out);
+        add3: full_adder(z[3], x[3], y[3], add2.c_out);
+
+    DEFINE
+        c_out := add3.c_out;
+
+MODULE main
+    VAR
+        x: array 0..3 of boolean;
+        y: array 0..3 of boolean;
+        z: array 0..3 of boolean;
+
+        adder: ripple_carry_adder(z, x, y);
+
+    LTLSPEC !F(adder.z[0] & !adder.z[1] & adder.z[2] & !adder.z[3]);

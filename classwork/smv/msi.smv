@@ -1,0 +1,77 @@
+MODULE core(id, op)
+  VAR
+    bus   : { Nop, BusRd, BusRdX, BusUpgr, Flush };
+    state : { Modified, Shared, Invalid };
+
+  ASSIGN
+    next(state) := case
+                                        (op = Nop  ) : state;
+                                        (op = Evict) : Invalid;
+
+                   (state = Invalid ) & (op = PrRd ) : Shared;
+                   (state = Invalid ) & (op = PrWr ) : Modified;
+                   (state = Invalid )  /-- Other --/ : Invalid;
+
+                   (state = Shared  ) & (op = PrRd ) : Shared;
+                   (state = Shared  ) & (op = PrWr ) : Modified;
+                   (state = Shared  ) & (op = BusRd) : Shared;
+                   (state = Shared  )  /-- Other --/ : Invalid;
+
+                   (state = Modified) & (op = PrRd ) : Modified;
+                   (state = Modified) & (op = PrWr ) : Modified;
+                   (state = Modified) & (op = BusRd) : Shared;
+                   (state = Modified)  /-- Other --/ : Invalid;
+                   esac;
+
+    next(bus) := case
+                                        (op = Nop  ) : Nop;
+
+                   (state = Invalid ) & (op = PrRd ) : BusRd;
+                   (state = Invalid ) & (op = PrWr ) : BusRdX;
+                   (state = Invalid )  /-- Other --/ : Nop;
+
+                   (state = Shared  ) & (op = PrRd ) : Nop;
+                   (state = Shared  ) & (op = PrWr ) : BusUpgr;
+                   (state = Shared  )  /-- Other --/ : Nop;
+
+                   (state = Modified) & (op = PrRd ) : Nop;
+                   (state = Modified) & (op = PrWr ) : Nop;
+                   (state = Modified)  /-- Other --/ : Flush;
+                   esac;
+
+MODULE main
+  VAR
+    phase : boolean;
+
+    op  : { Nop, PrRd, PrWr, Evict };
+    who : word[2];
+
+    core0: core(0d2_0, op0);
+    core1: core(0d2_1, op1);
+    core2: core(0d2_2, op2);
+    core3: core(0d2_3, op3);
+
+  INVAR !phase -> (op = Nop);
+
+  ASSIGN
+    init(phase) := TRUE;
+    next(phase) := !phase;
+
+  DEFINE
+    bus := case
+           core0.bus != Nop : core0.bus;
+           core1.bus != Nop : core1.bus;
+           core2.bus != Nop : core2.bus;
+           TRUE             : core3.bus;
+           esac;
+
+    op0 := phase ? (who = 0d2_0 ? op : Nop) : bus;
+    op1 := phase ? (who = 0d2_1 ? op : Nop) : bus;
+    op2 := phase ? (who = 0d2_2 ? op : Nop) : bus;
+    op3 := phase ? (who = 0d2_3 ? op : Nop) : bus;
+
+  LTLSPEC count(
+            core0.state = Modified,
+            core1.state = Modified,
+            core2.state = Modified,
+            core3.state = Modified) <= 1;

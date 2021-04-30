@@ -1,0 +1,74 @@
+MODULE fifo(
+    enq_val, -- Do enqueue
+    enq_dat, -- Data to be enqueued
+    deq_val, -- Do dequeue
+    deq_dat, -- Data to be dequeued
+
+    enq_rdy, -- Enqueuing allowed 
+    deq_rdy  -- Dequeuing allowed
+)
+
+    VAR
+        ram:array 0..7 of word[4];
+
+        is_full: boolean;
+
+        enq_ptr: word[3];
+        deq_ptr: word[3];
+
+    DEFINE
+        is_empty := !is_full & (enq_ptr = deq_ptr);
+
+        do_enq := enq_val & enq_rdy;
+        do_deq := deq_val & deq_rdy;
+
+        enq_ptr_inc := (enq_ptr = 0d3_7 ? 0ud3_0 : enq_ptr + 0ud3_1);
+        deq_ptr_inc := deq_ptr + 0ud3_1; -- The same
+
+    ASSIGN
+        init(is_full) := FALSE;
+        init(enq_ptr) := 0ud3_0;
+        init(deq_ptr) := 0ud3_0;
+
+        enq_rdy := !is_full;
+        deq_rdy := !is_empty;
+
+        next(is_full) :=    case
+                                do_enq & do_deq         : is_full;
+                                !do_enq & do_deq        : FALSE;
+                                enq_ptr_inc = deq_ptr   : TRUE;
+                                TRUE                    : FALSE;
+                            esac;
+
+        next(enq_ptr) := (do_enq ? enq_ptr_inc : enq_ptr);
+        next(deq_ptr) := (do_deq ? deq_ptr_inc : deq_ptr);
+
+        next(ram[0]) := (do_deq & enq_ptr = 0ud3_0 ? enq_dat : ram[0]);
+        next(ram[1]) := (do_deq & enq_ptr = 0ud3_1 ? enq_dat : ram[1]);
+        next(ram[2]) := (do_deq & enq_ptr = 0ud3_2 ? enq_dat : ram[2]);
+        next(ram[3]) := (do_deq & enq_ptr = 0ud3_3 ? enq_dat : ram[3]);
+        next(ram[4]) := (do_deq & enq_ptr = 0ud3_4 ? enq_dat : ram[4]);
+        next(ram[5]) := (do_deq & enq_ptr = 0ud3_5 ? enq_dat : ram[5]);
+        next(ram[6]) := (do_deq & enq_ptr = 0ud3_6 ? enq_dat : ram[6]);
+        next(ram[7]) := (do_deq & enq_ptr = 0ud3_7 ? enq_dat : ram[7]);
+
+        deq_dat := ram[deq_ptr];
+
+
+MODULE main
+    VAR
+        enq_val : boolean; -- Do enqueue
+        enq_dat : word[4]; -- Data to be enqueued
+        deq_val : boolean; -- Do dequeue
+        deq_dat : word[4]; -- Data to be dequeued
+
+        enq_rdy : boolean; -- Enqueuing allowed 
+        deq_rdy : boolean; -- Dequeuing allowed
+
+        queue: fifo(enq_val, enq_dat, deq_val, deq_dat, enq_rdy, deq_rdy);
+
+    INVAR !(enq_val & !enq_rdy);
+    INVAR !(deq_val & !deq_rdy);
+
+    LTLSPEC G(!(enq_val & queue.is_full));
+    LTLSPEC G(!(deq_val & queue.is_empty));
