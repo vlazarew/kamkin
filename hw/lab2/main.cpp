@@ -53,19 +53,19 @@ bool getResultOfRow(bool left, bool right, Formula::Kind boolOperator);
 
 std::vector<Node> &
 getRootsRecur(const Formula &formula, vector<int> &vector, std::vector<std::unordered_map<Formula, Formula>> &vector1,
-              std::vector<Node> &vector2, std::vector<Formula> &vector3);
+              std::vector<Node> &vector2, std::unordered_map<Formula, Formula> &vector3);
 
 //void handleRootSite(const Formula &formula, vector<Node> &vector, vector <Formula> &vector1, unordered_set<Formula> set,
 //                    const Formula formula1, vector<int> &vector2, unordered_map<Formula, Formula> &map);
 
 void
-handleRootSite(Formula &formula1, vector<Node> &roots, vector<Formula> &neededs,
+handleRootSite(Formula &formula1, vector<Node> &roots, unordered_map<Formula, Formula> &neededs,
                unordered_set<Formula> &variablesTemp, const Formula &site, vector<int> &query,
                unordered_map<Formula, Formula> &map);
 
-bool canAdd(const Formula &formula, const vector<Formula> &ignored) {
+bool canAdd(const Formula &formula, const unordered_map<Formula, Formula> &ignored) {
     for (auto &i : ignored) {
-        if (formula.kind() == i.kind() && formula.var() == i.var()) {
+        if (formula.kind() == i.first.kind() && formula.var() == i.first.var()) {
             return false;
         }
     }
@@ -73,7 +73,8 @@ bool canAdd(const Formula &formula, const vector<Formula> &ignored) {
     return true;
 }
 
-void getVariables(const Formula &formula, unordered_set<Formula> &setOfVariables, const vector<Formula> &ignored) {
+void getVariables(const Formula &formula, unordered_set<Formula> &setOfVariables,
+                  const unordered_map<Formula, Formula> &ignored) {
     if (formula.var() != -1 && canAdd(formula, ignored)) {
         setOfVariables.insert(formula);
     }
@@ -220,8 +221,17 @@ Formula getNeededVar(unordered_map<Formula, Formula> &map, int &at) {
     }
 }
 
+void insertOrUpdateNeeded(unordered_map<Formula, Formula> &neededs, const Formula &needed, const Formula &site) {
+    auto it = neededs.find(needed);
+    if (it != neededs.end()) {
+        it->second = site;
+    } else {
+        neededs.insert({needed, site});
+    }
+}
+
 void addRootLinks(vector<Node> &roots, vector<int> &resultVectorTemp, const Formula &site, vector<int> &query,
-                  unordered_map<Formula, Formula> map, vector<Formula> &neededs, Formula &formula1,
+                  unordered_map<Formula, Formula> map, unordered_map<Formula, Formula> &neededs, Formula &formula1,
                   vector<unordered_map<Formula, Formula>> &variablesCombinations) {
     bool isOne = true;
     bool isZero = true;
@@ -267,7 +277,7 @@ void addRootLinks(vector<Node> &roots, vector<int> &resultVectorTemp, const Form
         }
         query.erase(query.begin());
         roots.push_back(newRoot);
-        neededs.push_back(need);
+        neededs.insert({need, Formula::T});
 
         unordered_set<Formula> variablesTemp;
         getVariables(formula1, variablesTemp, neededs);
@@ -277,13 +287,13 @@ void addRootLinks(vector<Node> &roots, vector<int> &resultVectorTemp, const Form
 }
 
 void
-handleRootSite(Formula &formula1, vector<Node> &roots, vector<Formula> &neededs,
+handleRootSite(Formula &formula1, vector<Node> &roots, unordered_map<Formula, Formula> &neededs,
                unordered_set<Formula> &variablesTemp, const Formula &site, vector<int> &query,
                unordered_map<Formula, Formula> &map) {
     vector<unordered_map<Formula, Formula> > variablesCombinationsTemp = makeVariablesCombinations(variablesTemp);
     for (auto &it : variablesCombinationsTemp) {
         for (auto &needed : neededs) {
-            it.insert({needed, site});
+            it.insert({needed.first, needed.second});
         }
     }
 
@@ -292,15 +302,27 @@ handleRootSite(Formula &formula1, vector<Node> &roots, vector<Formula> &neededs,
     addRootLinks(roots, resultVectorTemp, site, query, map, neededs, formula1, variablesCombinationsTemp);
 }
 
+Formula getLastNeeded(unordered_map<Formula, Formula> &map) {
+    Formula result = Formula::T;
+    for (auto &iter : map)
+        if (next(&iter) == nullptr) {
+            result = iter.first;
+        }
+
+    return result;
+}
+
 vector<Node> &
 getRootsRecur(Formula &formula1, vector<int> &query, vector <unordered_map<Formula, Formula>> &variablesCombinations,
-              vector <Node> &roots, vector <Formula> &neededs) {
+              vector <Node> &roots, unordered_map<Formula, Formula> &neededs) {
     unordered_set<Formula> variablesTemp;
     getVariables(formula1, variablesTemp, neededs);
+    Formula last = getLastNeeded(neededs);
     handleRootSite(formula1, roots, neededs, variablesTemp, Formula::T, query, variablesCombinations.at(0));
     handleRootSite(formula1, roots, neededs, variablesTemp, Formula::F, query, variablesCombinations.at(0));
     return roots;
 }
+
 
 int main() {
     Formula formula1 = x(1) || x(2) && x(3);
@@ -320,7 +342,7 @@ int main() {
     Bdd bdd;
 
     unordered_set<Formula> variables;
-    getVariables(formula1, variables, vector<Formula>());
+    getVariables(formula1, variables, unordered_map<Formula, Formula>());
 
     vector<unordered_map<Formula, Formula> > variablesCombinations = makeVariablesCombinations(variables);
     vector<int> resultVector = vector<int>();
@@ -360,12 +382,12 @@ int main() {
 //    }
 
     vector<Node> roots;
-    vector<Formula> neededs;
+    unordered_map<Formula, Formula> neededs;
     Formula needed = getNeededVar(variablesCombinations.at(0), query.at(0));
     query.erase(query.begin());
     Node root = bdd.create(needed);
     roots.push_back(root);
-    neededs.push_back(needed);
+    insertOrUpdateNeeded(neededs, needed, Formula::T);
     roots = getRootsRecur(formula1, query, variablesCombinations, roots, neededs);
 
     int i = 1;
