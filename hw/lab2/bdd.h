@@ -16,37 +16,40 @@
 
 #include <memory>
 #include <vector>
-
+#include <unordered_map>
 #include "formula.h"
 
 using namespace model::logic;
+using namespace std;
 
 namespace model::bdd {
 
-struct Node final {
-  int var;
+    struct Node final {
+        int var;
 
-  const Node *low;
-  const Node *high;
+        const Node *low;
+        const Node *high;
 
-  Node(): var(), low(nullptr), high(nullptr) {}
+        Node() : var(), low(nullptr), high(nullptr) {}
 
-  Node(int var, const Node *low, const Node *high):
-    var(var), low(low), high(high) {}
-};
+        Node(int var, const Node *low, const Node *high) :
+                var(var), low(low), high(high) {}
+    };
 
-class Bdd final {
-public:
-  static const Node zero;
-  static const Node one;
+    class Bdd final {
+    public:
+        static const Node zero;
+        static const Node one;
 
-  // TODO: To be implemented in 'bdd.cpp'.
-  const Node& create(const Formula &formula);
+        // TODO: To be implemented in 'bdd.cpp'.
+        Node create(const Formula &formula);
+//        create(const Formula &formula, vector<unordered_map<Formula, Formula> > variablesCombinations, int splitBy,
+//               vector<int> query);
 
-private:
-  // Pool of nodes organized so as to effeciently
-  // search for a given (var, low, high).
-  // TODO:
-};
+    private:
+        // Pool of nodes organized so as to effeciently
+        // search for a given (var, low, high).
+        // TODO:
+    };
 
 } // namespace model::bdd

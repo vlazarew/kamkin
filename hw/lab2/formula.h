@@ -20,99 +20,146 @@
 
 namespace model::logic {
 
-class Formula final {
-public:
-  enum Kind {
-    FALSE, // Constant false
-    TRUE,  // Constant true
-    VAR,   // Boolean variable: x[i]
-    NOT,   // Negation: ~A
-    AND,   // Conjunction: (A1 & A2)
-    OR,    // Disjunction: (A1 | A2)
-    XOR,   // Exclusive OR: (A1 ^ A2)
-    IMPL,  // Implication: (A1 -> A2)
-    EQ     // Equivalence: (A1 <-> A2)
-  };
+    class Formula final {
+    public:
+        enum Kind {
+            FALSE, // Constant false
+            TRUE,  // Constant true
+            VAR,   // Boolean variable: x[i]
+            NOT,   // Negation: ~A
+            AND,   // Conjunction: (A1 & A2)
+            OR,    // Disjunction: (A1 | A2)
+            XOR,   // Exclusive OR: (A1 ^ A2)
+            IMPL,  // Implication: (A1 -> A2)
+            EQ     // Equivalence: (A1 <-> A2)
+        };
 
-  static const Formula F;
-  static const Formula T;
+        static const Formula F;
+        static const Formula T;
 
-  const Formula& operator !() const;
-  const Formula& operator &&(const Formula &rhs) const;
-  const Formula& operator ||(const Formula &rhs) const;
-  const Formula& operator >>(const Formula &rhs) const;
-  const Formula& operator ==(const Formula &rhs) const;
-  const Formula& operator !=(const Formula &rhs) const;
+        const Formula &operator!() const;
 
-  friend const Formula& x(int i);
+        const Formula &operator&&(const Formula &rhs) const;
 
-  Kind kind() const { return _kind; }
-  int var() const { return _var; }
+        const Formula &operator||(const Formula &rhs) const;
 
-  const Formula& arg() const { return *_lhs; }
-  const Formula& lhs() const { return *_lhs; }
-  const Formula& rhs() const { return *_rhs; }
+        const Formula &operator>>(const Formula &rhs) const;
 
-private:
-  Formula(Kind kind, int var, const Formula *lhs, const Formula *rhs):
-    _kind(kind), _var(var), _lhs(lhs), _rhs(rhs) {}
+//        const Formula &operator==(const Formula &rhs) const;
 
-  Formula(int var):
-    Formula(VAR, var, nullptr, nullptr) {}
 
-  Formula(Kind kind):
-    Formula(kind, -1, nullptr, nullptr) {}
+        const Formula &operator!=(const Formula &rhs) const;
 
-  Formula(Kind kind, const Formula *arg):
-    Formula(kind, -1, arg, nullptr) {}
+        friend const Formula &x(int i);
 
-  Formula(Kind kind, const Formula *lhs, const Formula *rhs):
-    Formula(kind, -1, lhs, rhs) {}
+        Kind kind() const { return _kind; }
 
-  static const Formula& alloc(const Formula *formula) {
-    _formulae.push_back(std::unique_ptr<const Formula>(formula));
-    return *formula;
-  }
+        int var() const { return _var; }
 
-  static std::vector<std::unique_ptr<const Formula>> _formulae;
+        const Formula &arg() const { return *_lhs; }
 
-  const Kind _kind;
-  const int _var;
-  const Formula* _lhs;
-  const Formula* _rhs;
-};
+        const Formula &lhs() const { return *_lhs; }
 
-extern const Formula F;
-extern const Formula T;
+        const Formula &rhs() const { return *_rhs; }
 
-inline const Formula& Formula::operator !() const {
-  return alloc(new Formula(NOT, this));
-}
+        Formula operator=(Formula other);
 
-inline const Formula& Formula::operator &&(const Formula &rhs) const {
-  return alloc(new Formula(AND, this, &rhs));
-}
+        bool operator==(const Formula other) const {
+            if (this->kind() != other.kind())
+                return false;
+            if (this->kind() == Formula::VAR) {
+                return this->var() == other.var();
+            }
+            return (this->lhs() == other.lhs() && this->rhs() == other.rhs());
+        }
 
-inline const Formula& Formula::operator ||(const Formula &rhs) const {
-  return alloc(new Formula(OR, this, &rhs));
-}
+        std::string toString() const {
+            switch (this->kind()) {
+                case Formula::FALSE:
+                    return "false";
+                case Formula::TRUE:
+                    return "true";
+                case Formula::VAR:
+                    return &"x"[this->var()];
+                case Formula::NOT:
+                    return "!(" + this->arg().toString() + ")";
+                case Formula::AND:
+                    return "(" + this->lhs().toString() + ") && (" + this->rhs().toString() + ")";
+                case Formula::OR:
+                    return "(" + this->lhs().toString() + ") || (" + this->rhs().toString() + ")";
+                case Formula::XOR:
+                    return "(" + this->lhs().toString() + ") != (" + this->rhs().toString() + ")";
+                case Formula::IMPL:
+                    return "(" + this->lhs().toString() + ") -> (" + this->rhs().toString() + ")";
+                case Formula::EQ:
+                    return "(" + this->lhs().toString() + ") == (" + this->rhs().toString() + ")";
+            }
+        }
 
-inline const Formula& Formula::operator >>(const Formula &rhs) const {
-  return alloc(new Formula(IMPL, this, &rhs));
-}
+        Formula(Kind kind) :
+                Formula(kind, -1, nullptr, nullptr) {}
 
-inline const Formula& Formula::operator ==(const Formula &rhs) const {
-  return alloc(new Formula(EQ, this, &rhs));
-}
+    private:
+        Formula(Kind kind, int var, const Formula *lhs, const Formula *rhs) :
+                _kind(kind), _var(var), _lhs(lhs), _rhs(rhs) {}
 
-inline const Formula& Formula::operator !=(const Formula &rhs) const {
-  return alloc(new Formula(XOR, this, &rhs));
-}
+        Formula(int var) :
+                Formula(VAR, var, nullptr, nullptr) {}
 
-inline const Formula& x(int var) {
-  return Formula::alloc(new Formula(var));
-}
+        Formula(Kind kind, const Formula *arg) :
+                Formula(kind, -1, arg, nullptr) {}
 
-std::ostream& operator <<(std::ostream &out, const Formula &formula);
+        Formula(Kind kind, const Formula *lhs, const Formula *rhs) :
+                Formula(kind, -1, lhs, rhs) {}
+
+        static const Formula &alloc(const Formula *formula) {
+            _formulae.push_back(std::unique_ptr<const Formula>(formula));
+            return *formula;
+        }
+
+        static std::vector<std::unique_ptr<const Formula>> _formulae;
+
+        const Kind _kind;
+        const int _var;
+        const Formula *_lhs;
+        const Formula *_rhs;
+    };
+
+    extern const Formula F;
+    extern const Formula T;
+
+    inline const Formula &Formula::operator!() const {
+        return alloc(new Formula(NOT, this));
+    }
+
+    inline const Formula &Formula::operator&&(const Formula &rhs) const {
+        return alloc(new Formula(AND, this, &rhs));
+    }
+
+    inline Formula Formula::operator=(Formula other)  {
+        return Formula(this->kind(), this->var(), &this->rhs(), &this->lhs());
+    }
+
+    inline const Formula &Formula::operator||(const Formula &rhs) const {
+        return alloc(new Formula(OR, this, &rhs));
+    }
+
+    inline const Formula &Formula::operator>>(const Formula &rhs) const {
+        return alloc(new Formula(IMPL, this, &rhs));
+    }
+
+//    inline const Formula &Formula::operator==(const Formula &rhs) const {
+//        return alloc(new Formula(EQ, this, &rhs));
+//    }
+
+    inline const Formula &Formula::operator!=(const Formula &rhs) const {
+        return alloc(new Formula(XOR, this, &rhs));
+    }
+
+    inline const Formula &x(int var) {
+        return Formula::alloc(new Formula(var));
+    }
+
+    std::ostream &operator<<(std::ostream &out, const Formula &formula);
 
 } // namespace model::logic

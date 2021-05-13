@@ -14,21 +14,28 @@
 
 #include "bdd.h"
 
-namespace model::bdd {
+namespace model {
+    namespace bdd {
 
-const Node Bdd::zero(-1, nullptr, nullptr);
-const Node Bdd::one (-1, nullptr, nullptr);
+        const Node Bdd::zero(-1, nullptr, nullptr);
+        const Node Bdd::one(-1, nullptr, nullptr);
 
-const Node& Bdd::create(const Formula &formula) {
-  if (formula.kind() == Formula::FALSE) {
-    return Bdd::zero;
-  }
-  if (formula.kind() == Formula::TRUE) {
-    return Bdd::one;
-  }
+        Node Bdd::create(const Formula &formula) {
+            if (formula.kind() == Formula::FALSE) {
+                return Bdd::zero;
+            }
+            if (formula.kind() == Formula::TRUE) {
+                return Bdd::one;
+            }
+            if (formula.kind() == Formula::VAR) {
+                Node newNode = Node();
+                newNode.var = formula.var();
+                return newNode;
+            }
 
-  // FIXME:
-  return Bdd::zero;
-}
+//}         // FIXME:
+            return Bdd::zero;
+        }
 
+    }
 } // namespace model::bdd

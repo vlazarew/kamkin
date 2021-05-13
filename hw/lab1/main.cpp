@@ -15,7 +15,6 @@
 #include<string>
 #include<cmath>
 #include<stack>
-#include<cstring>
 #include<unordered_set>
 #include<functional>
 #include "ltl.h"
@@ -492,9 +491,10 @@ Formula getSimplifiedFormula(const Formula &formula) {
 }
 
 int main() {
-//    Formula formula = U(P("p") || P("q"), (P("p") && P("q")));
+    Formula formula = U(P("p") || P("q"), (P("p") && P("q")));
+//    Formula formula = P("p") >> P("q");
 //    Formula formula = G(P("p") >> X(P("q")));
-    Formula formula = X(!(P("q")));
+//    Formula formula = X(!(P("q")));
 
 //    Формула на входе
     cout << "Formula: " << endl;
