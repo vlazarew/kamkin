@@ -52,8 +52,8 @@ bool IsOperator(const Formula &formula);
 bool getResultOfRow(bool left, bool right, Formula::Kind boolOperator);
 
 std::vector<Node> &
-getRootsRecur(const Formula &formula, vector<int> &vector, std::vector<std::unordered_map<Formula, Formula>> &vector1,
-              std::vector<Node> &vector2, std::unordered_map<Formula, Formula> &vector3);
+getRootsRecur(Formula &formula1, vector<int> &query, vector<unordered_map<Formula, Formula>> &variablesCombinations,
+              vector<Node> &roots, unordered_map<Formula, Formula> &neededs, vector<int> &mainQuery, int level);
 
 //void handleRootSite(const Formula &formula, vector<Node> &vector, vector <Formula> &vector1, unordered_set<Formula> set,
 //                    const Formula formula1, vector<int> &vector2, unordered_map<Formula, Formula> &map);
@@ -219,20 +219,109 @@ Formula getNeededVar(unordered_map<Formula, Formula> &map, int &at) {
             return it.first;
         }
     }
+
+    return Formula::F;
 }
 
 void insertOrUpdateNeeded(unordered_map<Formula, Formula> &neededs, const Formula &needed, const Formula &site) {
-    auto it = neededs.find(needed);
-    if (it != neededs.end()) {
-        it->second = site;
-    } else {
+    bool found = false;
+    for (auto &it : neededs) {
+        if (it.first.kind() == needed.kind() && it.first.var() == needed.var()) {
+            neededs.erase(it.first);
+        }
+    }
+
+    if (!found) {
         neededs.insert({needed, site});
     }
+
+}
+
+void makePrint(unordered_map<Formula, Formula> &neededs, vector<int> &mainQuery, const Formula &site, Node nodeRoot,
+               Node node, string value) {
+    unordered_map<Formula, Formula> temp;
+    for (auto &it : neededs) {
+        temp.insert(it);
+    }
+
+    int needSize = neededs.size();
+    int index = 0;
+    while (index < needSize) {
+        for (auto &it : temp) {
+            for (int &i : mainQuery) {
+                Formula need = getNeededVar(temp, i);
+                if (need.kind() != Formula::F.kind()) {
+                    if (it.first.kind() == need.kind() && it.first.var() == need.var()) {
+                        if (index == needSize - 1) {
+                            if (it.second.kind() == Formula::T.kind()) {
+                                nodeRoot.high = &node;
+                                cout << "[x" << it.first.var() << "] ---> high [" << value << "]" << endl;
+                            } else {
+                                nodeRoot.low = &node;
+                                cout << "[x" << it.first.var() << "] ---> low [" << value << "]" << endl;
+                            }
+                        } else {
+                            if (it.second.kind() == Formula::T.kind()) {
+                                nodeRoot.high = &node;
+                                cout << "[x" << need.var() << "] ---> high ";
+                            } else {
+                                nodeRoot.low = &node;
+                                cout << "[x" << need.var() << "] ---> low ";
+                            }
+                        }
+                        index++;
+                    }
+                }
+            }
+        }
+    }
+
+
+//    for (int &i : mainQuery) {
+//        Formula need = getNeededVar(neededs, i);
+//        if (need.kind() != Formula::F.kind()) {
+//            int needSize = neededs.size();
+//            int index = 0;
+//            while (index < needSize) {
+//                for (auto &it : neededs) {
+//                    if (it.first.kind() == need.kind() && it.first.var() == need.var()) {
+//                        if (index == needSize - 1) {
+//                            if (it.second.kind() == Formula::T.kind()) {
+//                                nodeRoot.high = &node;
+//                                cout << "([x" << it.first.var() << "] ---> high [" << value << "])";
+//                            } else {
+//                                nodeRoot.low = &node;
+//                                cout << "([x" << it.first.var() << "] ---> low [" << value << "])";
+//                            }
+//                        } else {
+//                            if (site.kind() == Formula::T.kind()) {
+//                                nodeRoot.high = &node;
+//                                cout << "[x" << need.var() << "] ---> high ";
+//                            } else {
+//                                nodeRoot.low = &node;
+//                                cout << "[x" << need.var() << "] ---> low ";
+//                            }
+//                        }
+//                        index++;
+//                    }
+//                }
+//            }
+//            cout << endl;
+//        }
+//    }
+
+//    if (site.kind() == Formula::T.kind()) {
+//        nodeRoot.high = &node;
+//        cout << "([x" << nodeRoot.var << "] ---> high [" << value << "])" << endl;
+//    } else {
+//        nodeRoot.low = &node;
+//        cout << "([x" << nodeRoot.var << "] ---> low [" << value << "])" << endl;
+//    }
 }
 
 void addRootLinks(vector<Node> &roots, vector<int> &resultVectorTemp, const Formula &site, vector<int> &query,
                   unordered_map<Formula, Formula> map, unordered_map<Formula, Formula> &neededs, Formula &formula1,
-                  vector<unordered_map<Formula, Formula>> &variablesCombinations) {
+                  vector<unordered_map<Formula, Formula>> &variablesCombinations, vector<int> &mainQuery, int level) {
     bool isOne = true;
     bool isZero = true;
     for (int j : resultVectorTemp) {
@@ -247,49 +336,49 @@ void addRootLinks(vector<Node> &roots, vector<int> &resultVectorTemp, const Form
     Node &nodeRoot = roots.at(roots.size() - 1);
     if (isOne) {
         Node node = Node(10000000, nullptr, nullptr);
-        if (site.kind() == Formula::T.kind()) {
-            nodeRoot.high = &node;
-            cout << "[x" << nodeRoot.var << "] ---> high [1]" << endl;
-        } else {
-            nodeRoot.low = &node;
-            cout << "[x" << nodeRoot.var << "] ---> low [1]" << endl;
-        }
+        makePrint(neededs, mainQuery, site, nodeRoot, node, "1");
+//        if (site.kind() == Formula::T.kind()) {
+//            nodeRoot.high = &node;
+//            cout << "([x" << nodeRoot.var << "] ---> high [1])" << endl;
+//        } else {
+//            nodeRoot.low = &node;
+//            cout << "([x" << nodeRoot.var << "] ---> low [1])" << endl;
+//        }
     }
     if (isZero) {
         Node node = Node(-10000000, nullptr, nullptr);
-        if (site.kind() == Formula::T.kind()) {
-            nodeRoot.high = &node;
-            cout << "[x" << nodeRoot.var << "] ---> high [0]" << endl;
-        } else {
-            nodeRoot.low = &node;
-            cout << "[x" << nodeRoot.var << "] ---> low [0]" << endl;
-        }
+        makePrint(neededs, mainQuery, site, nodeRoot, node, "0");
+//        if (site.kind() == Formula::T.kind()) {
+//            nodeRoot.high = &node;
+//            cout << "([x" << nodeRoot.var << "] ---> high [0])" << endl;
+//        } else {
+//            nodeRoot.low = &node;
+//            cout << "([x" << nodeRoot.var << "] ---> low [0])" << endl;
+//        }
     }
     if (!isZero && !isOne) {
-        Formula need = getNeededVar(map, query.at(0));
+        Formula need = getNeededVar(map, query.at(level));
         Node newRoot = Node(need.var(), nullptr, nullptr);
-        if (site.kind() == Formula::T.kind()) {
-            nodeRoot.high = &newRoot;
-            cout << "[x" << nodeRoot.var << "] ---> high [x" << need.var() << "] ---> ";
-        } else {
-            nodeRoot.low = &newRoot;
-            cout << "[x" << nodeRoot.var << "] ---> low [x" << need.var() << "] ---> ";
-        }
-        query.erase(query.begin());
+//        makePrint(neededs, mainQuery, site, nodeRoot, newRoot, "0");
+//        if (site.kind() == Formula::T.kind()) {
+//            nodeRoot.high = &newRoot;
+//            cout << "([x" << nodeRoot.var << "] ---> high [x" << need.var() << "]) ---> ";
+//        } else {
+//            nodeRoot.low = &newRoot;
+//            cout << "([x" << nodeRoot.var << "] ---> low [x" << need.var() << "]) ---> ";
+//        }
+//        query.erase(query.begin());
         roots.push_back(newRoot);
-        neededs.insert({need, Formula::T});
+        insertOrUpdateNeeded(neededs, need, Formula::T);
 
-        unordered_set<Formula> variablesTemp;
-        getVariables(formula1, variablesTemp, neededs);
-        handleRootSite(formula1, roots, neededs, variablesTemp, Formula::T, query, variablesCombinations.at(0));
-        handleRootSite(formula1, roots, neededs, variablesTemp, Formula::F, query, variablesCombinations.at(0));
+        getRootsRecur(formula1, query, variablesCombinations, roots, neededs, mainQuery, level + 1);
     }
 }
 
 void
 handleRootSite(Formula &formula1, vector<Node> &roots, unordered_map<Formula, Formula> &neededs,
                unordered_set<Formula> &variablesTemp, const Formula &site, vector<int> &query,
-               unordered_map<Formula, Formula> &map) {
+               unordered_map<Formula, Formula> &map, vector<int> &mainQuery, int level) {
     vector<unordered_map<Formula, Formula> > variablesCombinationsTemp = makeVariablesCombinations(variablesTemp);
     for (auto &it : variablesCombinationsTemp) {
         for (auto &needed : neededs) {
@@ -299,27 +388,36 @@ handleRootSite(Formula &formula1, vector<Node> &roots, unordered_map<Formula, Fo
 
     vector<int> resultVectorTemp = vector<int>();
     calculateFormula(formula1, variablesCombinationsTemp, resultVectorTemp);
-    addRootLinks(roots, resultVectorTemp, site, query, map, neededs, formula1, variablesCombinationsTemp);
+    addRootLinks(roots, resultVectorTemp, site, query, map, neededs, formula1, variablesCombinationsTemp, mainQuery,
+                 level);
+    neededs.erase(neededs.cbegin());
 }
 
-Formula getLastNeeded(unordered_map<Formula, Formula> &map) {
+Formula getLastNeeded(unordered_map<Formula, Formula> &map, int at) {
     Formula result = Formula::T;
-    for (auto &iter : map)
-        if (next(&iter) == nullptr) {
-            result = iter.first;
+    int index = 0;
+    for (auto &iter : map) {
+        if (at == index) {
+            return iter.first;
         }
+        index++;
+    }
 
     return result;
 }
 
 vector<Node> &
-getRootsRecur(Formula &formula1, vector<int> &query, vector <unordered_map<Formula, Formula>> &variablesCombinations,
-              vector <Node> &roots, unordered_map<Formula, Formula> &neededs) {
+getRootsRecur(Formula &formula1, vector<int> &query, vector<unordered_map<Formula, Formula>> &variablesCombinations,
+              vector<Node> &roots, unordered_map<Formula, Formula> &neededs, vector<int> &mainQuery, int level) {
     unordered_set<Formula> variablesTemp;
     getVariables(formula1, variablesTemp, neededs);
-    Formula last = getLastNeeded(neededs);
-    handleRootSite(formula1, roots, neededs, variablesTemp, Formula::T, query, variablesCombinations.at(0));
-    handleRootSite(formula1, roots, neededs, variablesTemp, Formula::F, query, variablesCombinations.at(0));
+    Formula last = getLastNeeded(neededs, 0);
+    insertOrUpdateNeeded(neededs, last, Formula::T);
+    handleRootSite(formula1, roots, neededs, variablesTemp, Formula::T, query, variablesCombinations.at(0), mainQuery,
+                   level);
+    insertOrUpdateNeeded(neededs, last, Formula::F);
+    handleRootSite(formula1, roots, neededs, variablesTemp, Formula::F, query, variablesCombinations.at(0), mainQuery,
+                   level);
     return roots;
 }
 
@@ -327,7 +425,8 @@ getRootsRecur(Formula &formula1, vector<int> &query, vector <unordered_map<Formu
 int main() {
     Formula formula1 = x(1) || x(2) && x(3);
 //    Formula splitBy = x(1);
-    vector<int> query = vector<int>{1, 2, 3};
+    vector<int> query = vector<int>{2, 1, 3};
+    vector<int> mainQuery = query;
 //    const Formula &formula1 =  x(0) >>  x(1);
 //    const Formula &formula2 = !x(1) >> !x(0);
 //    const Formula &formula3 = formula1 == formula2;
@@ -381,14 +480,15 @@ int main() {
 //        cout << "Разложение по неизвестному элементу!!!!!";
 //    }
 
+    int level = 0;
     vector<Node> roots;
     unordered_map<Formula, Formula> neededs;
-    Formula needed = getNeededVar(variablesCombinations.at(0), query.at(0));
-    query.erase(query.begin());
+    Formula needed = getNeededVar(variablesCombinations.at(0), query.at(level));
+//    query.erase(query.begin());
     Node root = bdd.create(needed);
     roots.push_back(root);
     insertOrUpdateNeeded(neededs, needed, Formula::T);
-    roots = getRootsRecur(formula1, query, variablesCombinations, roots, neededs);
+    roots = getRootsRecur(formula1, query, variablesCombinations, roots, neededs, mainQuery, 1);
 
     int i = 1;
 

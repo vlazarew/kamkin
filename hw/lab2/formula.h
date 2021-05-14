@@ -70,7 +70,7 @@ namespace model::logic {
             if (this->kind() == Formula::VAR) {
                 return this->var() == other.var();
             }
-            return (this->lhs() == other.lhs() && this->rhs() == other.rhs());
+//            return (this->lhs() == other.lhs() && this->rhs() == other.rhs());
         }
 
         std::string toString() const {
