@@ -25,16 +25,42 @@ using namespace model::fsm;
 using namespace std;
 
 
+string printFormula(const Formula &formula) {
+    switch (formula.kind()) {
+        case Formula::ATOM:
+            return "(ATOM" + formula.prop() + ")";
+        case Formula::NOT:
+            return "NOT(" + printFormula(formula.lhs()) + ")";
+        case Formula::AND:
+            return "(" + printFormula(formula.lhs()) + "AND" + printFormula(formula.rhs()) + ")";
+        case Formula::OR:
+            return "(" + printFormula(formula.lhs()) + "OR" + printFormula(formula.rhs()) + ")";
+        case Formula::IMPL:
+            return "(" + printFormula(formula.lhs()) + "IMPL" + printFormula(formula.rhs()) + ")";
+        case Formula::X:
+            return "X(" + printFormula(formula.lhs()) + ")";
+        case Formula::G:
+            return "G(" + printFormula(formula.lhs()) + ")";
+        case Formula::F:
+            return "F(" + printFormula(formula.lhs()) + ")";
+        case Formula::U:
+            return "(" + printFormula(formula.lhs()) + "U" + printFormula(formula.rhs()) + ")";
+        case Formula::R:
+            return "(" + printFormula(formula.lhs()) + "R" + printFormula(formula.rhs()) + ")";
+    };
+    return "";
+}
+
 // Получаем хеш для нашего объекта формула для добавления в сеты
 template<>
 struct std::hash<Formula> {
     int operator()(Formula const &formula) const {
         hash<string> hashFunc;
-        return hashFunc(formula.toString());
+        return hashFunc(printFormula(formula));
     }
 };
 
-Formula getSimplifiedFormula(const Formula &formula);
+Formula getSimplifiedFormula(vector<Formula> &initFormulas);
 
 void simplifyKindX(vector<Formula> &formulaStack, const Formula &latestFormula);
 
@@ -83,7 +109,7 @@ ostream &operator<<(ostream &out, vector<unordered_set<Formula>> &formulas) {
 }
 
 // Перебор всех подформул исходной формулы
-void createEnclosure(const Formula &formula, unordered_set<Formula> &closure) {
+void createEnclosure(Formula formula, unordered_set<Formula> &closure) {
     closure.insert(formula);
     if (formula.kind() == Formula::ATOM) {
         return;
@@ -101,16 +127,14 @@ void createEnclosure(const Formula &formula, unordered_set<Formula> &closure) {
     }
 }
 
-unordered_set<Formula> getAtoms(unordered_set<Formula> &closure, bool &hasTrue) {
-    unordered_set<Formula> atoms;
-    for (const auto &formula : closure) {
+void getAtoms(unordered_set<Formula> closure, bool &hasTrue, unordered_set<Formula> &atoms) {
+    for (auto &formula: closure) {
         if (formula.kind() == Formula::ATOM && formula.prop() == "1") {
             hasTrue = true;
         } else if (formula.kind() == Formula::X || formula.kind() == Formula::ATOM) {
             atoms.insert(formula);
         }
     }
-    return atoms;
 }
 
 
@@ -128,10 +152,22 @@ bool isTrue(Formula f, unordered_set<Formula> &trueSet) {
     }
 }
 
+bool hasAtomOrX(Formula f) {
+    if (f.kind() == Formula::AND || f.kind() == Formula::OR) {
+        return hasAtomOrX(f.lhs()) && hasAtomOrX(f.rhs());
+    } else if (f.kind() == Formula::NOT) {
+        return hasAtomOrX(f.lhs());
+    } else if (f.kind() == Formula::ATOM || f.kind() == Formula::X) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 unordered_set<Formula> getS(unordered_set<Formula> trueSet, unordered_set<Formula> &closure) {
     unordered_set<Formula> res;
     for (const auto &it : closure) {
-        if (isTrue(it, trueSet)) {
+        if (hasAtomOrX(it) && isTrue(it, trueSet)) {
             res.insert(it);
         }
     }
@@ -158,17 +194,16 @@ unordered_set<Formula> getX(unordered_set<Formula> &closure) {
     return res;
 }
 
-vector<unordered_set<Formula>> makeAtomCombinations(unordered_set<Formula> atoms, unordered_set<Formula> &closure,
+vector<unordered_set<Formula>> makeAtomCombinations(unordered_set<Formula> &atoms, unordered_set<Formula> &closure,
                                                     bool hasTrue) {
-    int vectorCombinationsSize = pow(2, atoms.size());
-    vector<unordered_set<Formula>> combinations;
-    for (int i = 0; i < vectorCombinationsSize; i++) {
+    vector<unordered_set<Formula>> combinations(pow(2, atoms.size()));
+    for (int i = 0; i < combinations.size(); i++) {
         unordered_set<Formula> trueSet = getTrueSet(atoms, i);
 
         cout << "True set" << endl;
         cout << trueSet << endl;
 
-        combinations.push_back(getS(trueSet, closure));
+        combinations.at(i) = getS(trueSet, closure);
         if (hasTrue) {
             combinations.at(i).insert(P("1"));
         }
@@ -214,27 +249,47 @@ void addUntil(unordered_set<Formula> &untils, vector<unordered_set<Formula>> &S)
     S.insert(S.end(), result.begin(), result.end());
 }
 
+bool isInitState(Formula f, unordered_set<Formula> &trueSet) {
+    if (f.kind() == Formula::AND) {
+        return isInitState(f.lhs(), trueSet) && isInitState(f.rhs(), trueSet);
+    } else if (f.kind() == Formula::OR) {
+        return isInitState(f.lhs(), trueSet) || isInitState(f.rhs(), trueSet);
+    } else if (f.kind() == Formula::NOT) {
+        return !isInitState(f.lhs(), trueSet);
+    } else if (f.kind() == Formula::ATOM || f.kind() == Formula::X) {
+        return trueSet.find(f) != trueSet.end();
+    } else if (f.kind() == Formula::U) {
+        return trueSet.find(f) != trueSet.end();
+    } else {
+        return false;
+    }
+}
+
 void addStates(Automaton &res, Formula &formula, unordered_set<Formula> &untils,
                vector<unordered_set<Formula>> &states) {
     for (int i = 0; i < states.size(); i++) {
-        bool init = false;
         bool final = false;
-
-        if (states.at(i).find(formula) != states.at(i).end()) {
-            init = true;
-        }
 
         for (const auto &until : untils) {
             Formula psi = until.rhs();
             if ((states.at(i).find(until) == states.at(i).end()) || ((states.at(i).find(psi) != states.at(i).end()))) {
                 final = true;
+                break;
             }
         }
-        res.add_state("s" + to_string(i), init, final);
+        res.add_state("s" + to_string(i));
+
+        if (isInitState(formula, states.at(i))) {
+            res.set_initial("s" + to_string(i));
+        }
+
+        if (final) {
+            res.set_final("s" + to_string(i), 1);
+        }
     }
 }
 
-void addTransition(Automaton &res, int index, vector<unordered_set<Formula>> &S,
+void addTransition(Automaton &res, int index, vector<unordered_set<Formula>> &states,
                    unordered_set<Formula> &untils, unordered_set<Formula> &closure) {
     unordered_set<Formula> XShould;
     unordered_set<Formula> XShouldnt;
@@ -244,14 +299,14 @@ void addTransition(Automaton &res, int index, vector<unordered_set<Formula>> &S,
     unordered_set<Formula> Xes = getX(closure);
     set<string> atoms = {};
 
-    for (const auto &it : S.at(index)) {
+    for (const auto &it : states.at(index)) {
         if (it.kind() == Formula::ATOM) {
             atoms.insert(it.prop());
         }
     }
 
     for (const auto &Xe : Xes) {
-        if (S.at(index).find(Xe) != S.at(index).end()) {
+        if (states.at(index).find(Xe) != states.at(index).end()) {
             XShould.insert(Xe.lhs());
         } else {
             XShouldnt.insert(Xe.lhs());
@@ -261,28 +316,28 @@ void addTransition(Automaton &res, int index, vector<unordered_set<Formula>> &S,
     for (const auto &until : untils) {
         Formula psi = until.rhs();
         Formula hi = until.lhs();
-        if (S.at(index).find(until) != S.at(index).end()) {
-            if (S.at(index).find(psi) == S.at(index).end()) {
+        if (states.at(index).find(until) != states.at(index).end()) {
+            if (states.at(index).find(psi) == states.at(index).end()) {
                 UShould.insert(until);
             }
         } else {
-            if (S.at(index).find(hi) != S.at(index).end()) {
+            if (states.at(index).find(hi) != states.at(index).end()) {
                 UShouldnt.insert(until);
             }
         }
     }
 
-    for (int i = 0; i < S.size(); i++) {
+    for (int i = 0; i < states.size(); i++) {
         bool isTransition = true;
         for (const auto &it : XShould) {
-            if (S.at(i).find(it) == S.at(i).end()) {
+            if (states.at(i).find(it) == states.at(i).end()) {
                 isTransition = false;
                 break;
             }
         }
         if (isTransition) {
             for (const auto &it : XShouldnt) {
-                if (S.at(i).find(it) != S.at(i).end()) {
+                if (states.at(i).find(it) != states.at(i).end()) {
                     isTransition = false;
                     break;
                 }
@@ -290,7 +345,7 @@ void addTransition(Automaton &res, int index, vector<unordered_set<Formula>> &S,
         }
         if (isTransition) {
             for (const auto &it : UShould) {
-                if (S.at(i).find(it) == S.at(i).end()) {
+                if (states.at(i).find(it) == states.at(i).end()) {
                     isTransition = false;
                     break;
                 }
@@ -298,7 +353,7 @@ void addTransition(Automaton &res, int index, vector<unordered_set<Formula>> &S,
         }
         if (isTransition) {
             for (const auto &it : UShouldnt) {
-                if (S.at(i).find(it) != S.at(i).end()) {
+                if (states.at(i).find(it) != states.at(i).end()) {
                     isTransition = false;
                     break;
                 }
@@ -310,13 +365,12 @@ void addTransition(Automaton &res, int index, vector<unordered_set<Formula>> &S,
     }
 }
 
-void addTransitions(Automaton &res, vector<unordered_set<Formula>> &S, unordered_set<Formula> &untils,
+void addTransitions(Automaton &automatic, vector<unordered_set<Formula>> &states, unordered_set<Formula> &untils,
                     unordered_set<Formula> &closure) {
-    for (int i = 0; i < S.size(); i++) {
-        addTransition(res, i, S, untils, closure);
+    for (int i = 0; i < states.size(); i++) {
+        addTransition(automatic, i, states, untils, closure);
     }
 }
-
 
 /////// УПРОЩЕНИЕ
 void simplify(vector<Formula> &formulaStack) {
@@ -402,16 +456,6 @@ void simplifyKindF(vector<Formula> &formulaStack, const Formula &latestFormula) 
 }
 
 ///// Упрощение NEXT + вспомогаельные методы
-void simplifyKindX(vector<Formula> &formulaStack, const Formula &latestFormula) {
-    if (latestFormula.lhs().kind() == Formula::OR) {
-        simplifyKindX_Or(formulaStack, latestFormula);
-    } else if (latestFormula.lhs().kind() == Formula::NOT) {
-        simplifyKindX_Not(formulaStack, latestFormula);
-    } else {
-        simplifyLindX_Other(formulaStack, latestFormula);
-    }
-}
-
 void simplifyLindX_Other(vector<Formula> &formulaStack, const Formula &latestFormula) {
     formulaStack.push_back(latestFormula.lhs());
     simplify(formulaStack);
@@ -438,13 +482,30 @@ void simplifyKindX_Or(vector<Formula> &formulaStack, const Formula &latestFormul
     formulaStack.push_back(X(formulaStack.at(formulaStack.size() - 1)));
 }
 
+void simplifyKindX(vector<Formula> &formulaStack, const Formula &latestFormula) {
+    if (latestFormula.lhs().kind() == Formula::OR) {
+        simplifyKindX_Or(formulaStack, latestFormula);
+    } else if (latestFormula.lhs().kind() == Formula::NOT) {
+        simplifyKindX_Not(formulaStack, latestFormula);
+    } else {
+        simplifyLindX_Other(formulaStack, latestFormula);
+    }
+}
+
 ///// КОНЕЦ: Упрощение NEXT + вспомогаельные методы
 
 /////// КОНЕЦ: УПРОЩЕНИЕ
 
-Automaton createAutomatic(Formula &formula) {
-//  Упрощение исходной формулы
-    Formula simplifiedFormula = getSimplifiedFormula(formula);
+Formula getSimplifiedFormula(vector<Formula> &initFormulas) {
+    simplify(initFormulas);
+
+    Formula simplifiedFormula = initFormulas.at(initFormulas.size() - 1);
+    return simplifiedFormula;
+}
+
+Automaton createAutomatic(Formula &formula, vector<Formula> &initFormulas) {
+    //  Упрощение исходной формулы
+    Formula simplifiedFormula = getSimplifiedFormula(initFormulas);
     cout << "Simplified formula: " << endl << simplifiedFormula << endl;
 //
 
@@ -456,7 +517,8 @@ Automaton createAutomatic(Formula &formula) {
 
 //  Извлекаем атомы
     bool hasTrue = false;
-    unordered_set<Formula> atoms = getAtoms(closure, hasTrue);
+    unordered_set<Formula> atoms;
+    getAtoms(closure, hasTrue, atoms);
     cout << "Atoms: " << endl << atoms << endl << endl;
 //
 
@@ -476,32 +538,27 @@ Automaton createAutomatic(Formula &formula) {
     Automaton automatic;
     addStates(automatic, simplifiedFormula, untilExpressions, atomsCombinations);
     addTransitions(automatic, atomsCombinations, untilExpressions, closure);
-//
 
     return automatic;
 }
 
-Formula getSimplifiedFormula(const Formula &formula) {
-    vector<Formula> simplifiedFormulas;
-    simplifiedFormulas.push_back(formula);
-    simplify(simplifiedFormulas);
-
-    Formula simplifiedFormula = simplifiedFormulas.at(simplifiedFormulas.size() - 1);
-    return simplifiedFormula;
-}
-
 int main() {
-    Formula formula = U(P("p") || P("q"), (P("p") && P("q")));
-//    Formula formula = P("p") >> P("q");
-//    Formula formula = G(P("p") >> X(P("q")));
-//    Formula formula = X(!(P("q")));
+//    Будем использовать вектор, чтоб не было проблем с памятью и прочей сегментацией, будь она неладна
+    vector<Formula> initFormula;
+    initFormula.reserve(1000);
+//    initFormula.push_back(F(P("p") >> (U(!P("q") && X(!P("p")), P("q")))));
+//    initFormula.push_back(U(P("p") || P("q"), (P("p") && P("q"))));
+//    initFormula.push_back(P("p") >> P("q"));
+//    initFormula.push_back(G(P("p") >> X(P("q"))));
+//    initFormula.push_back(X(!(P("q"))));
+    initFormula.push_back(G(P("p") >> U((!P("q")) && (X(!(P("p")))), P("q"))));
 
-//    Формула на входе
+    //    Формула на входе
     cout << "Formula: " << endl;
-    cout << formula << endl;
+    cout << initFormula.at(0) << endl;
 //
 
-    Automaton automatic = createAutomatic(formula);
+    Automaton automatic = createAutomatic(initFormula.at(0), initFormula);
     cout << "Automatic Buchi: " << endl;
     cout << automatic << endl;
     return 0;

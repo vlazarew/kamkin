@@ -15,139 +15,145 @@
 #pragma once
 
 #include <iostream>
+#include <map>
 #include <set>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
-namespace model {
-    namespace fsm {
+namespace model::fsm {
 
-        class State final {
-        public:
-            State(const std::string &label, bool init = false, int finish = -1) :
-                    _label(label), _initial(init), _final(finish) {}
+    class State final {
+    public:
+        State(const std::string &label): _label(label) {}
 
-            bool operator==(const State &rhs) const {
-                return _label == rhs._label;
-            }
-
-            std::string label() const { return _label; }
-
-            bool is_initial() const { return _initial; }
-
-            bool is_final() const { return _final >= 0; }
-
-            int final_set() const { return _final; }
-
-        private:
-            const std::string _label;
-
-            // Initial state flag.
-            const bool _initial;
-            // Acceptance set index (unless negative).
-            const int _final;
-        };
-
-        std::ostream &operator<<(std::ostream &out, const State &state) {
-            return out << state.label();
+        bool operator ==(const State &rhs) const {
+            return _label == rhs._label;
         }
 
-        class Transition final {
-        public:
-            Transition(const State &source, const std::set<std::string> &symbol, const State &target) :
-                    _source(source), _symbol(symbol), _target(target) {}
+        std::string label() const { return _label; }
 
-            bool operator==(const Transition &rhs) const {
-                return _source == rhs._source
-                       && _symbol == rhs._symbol
-                       && _target == rhs._target;
-            }
+    private:
+        const std::string _label;
+    };
 
-            const State &source() const { return _source; }
+    std::ostream& operator <<(std::ostream &out, const State &state) {
+        return out << state.label();
+    }
 
-            const State &target() const { return _target; }
+    class Transition final {
+    public:
+        Transition(const State &source, const std::set<std::string> &symbol, const State &target):
+                _source(source), _target(target), _symbol(symbol) {}
 
-            const std::set<std::string> &symbol() const { return _symbol; }
-
-        private:
-            const State &_source;
-            const State &_target;
-            std::set<std::string> _symbol;
-        };
-
-        std::ostream &operator<<(std::ostream &out, const Transition &transition) {
-            out << transition.source();
-            out << " --[";
-
-            bool separator = false;
-            for (auto i = transition.symbol().begin(); i != transition.symbol().end(); i++) {
-                if (separator) {
-                    out << ", ";
-                }
-                out << *i;
-                separator = true;
-            }
-
-            out << "]--> ";
-            out << transition.target();
-
-            return out;
+        bool operator ==(const Transition &rhs) const {
+            return _source == rhs._source
+                   && _symbol == rhs._symbol
+                   && _target == rhs._target;
         }
 
-        class Automaton final {
-        public:
-            Automaton() :
-                    _trans(1024) {}
+        const State& source() const { return _source; }
+        const State& target() const { return _target; }
+        const std::set<std::string>& symbol() const { return _symbol; }
 
-            friend std::ostream &operator<<(std::ostream &out, const Automaton &automaton);
+    private:
+        const State &_source;
+        const State &_target;
+        std::set<std::string> _symbol;
+    };
 
-            void add_state(const std::string &label, bool init = false, int finish = -1);
+    std::ostream& operator <<(std::ostream &out, const Transition &transition) {
+        out << transition.source();
+        out << " --[";
 
-            void add_trans(
-                    const std::string &source,
-                    const std::set<std::string> &symbol,
-                    const std::string &target
-            );
-
-        private:
-            std::unordered_map<std::string, State> _states;
-            std::unordered_map<std::string, std::vector<Transition>> _trans;
-        };
-
-        inline void Automaton::add_state(const std::string &label, bool init, int finish) {
-            State state(label, init, finish);
-            _states.insert({label, state});
+        bool separator = false;
+        for (auto i = transition.symbol().begin(); i != transition.symbol().end(); i++) {
+            out << (separator ? ", " : "") << *i;
+            separator = true;
         }
 
-        inline void Automaton::add_trans(
+        out << "]--> ";
+        out << transition.target();
+
+        return out;
+    }
+
+    class Automaton final {
+        friend std::ostream& operator <<(std::ostream &out, const Automaton &automaton);
+
+    public:
+        Automaton() {}
+
+        void add_state(const std::string &state_label);
+        void set_initial(const std::string &state_label);
+        void set_final(const std::string &state_label, unsigned final_set_index);
+
+        void add_trans(
                 const std::string &source,
                 const std::set<std::string> &symbol,
-                const std::string &target) {
+                const std::string &target
+        );
 
-            auto s = _states.find(source);
-            auto t = _states.find(target);
+    private:
+        std::map<std::string, State> _states;
+        std::set<std::string> _initial_states;
+        std::map<unsigned, std::set<std::string>> _final_states;
+        std::map<std::string, std::vector<Transition>> _transitions;
+    };
 
-            Transition trans(s->second, symbol, t->second);
-            _trans[source].push_back(trans);
-        }
-
-        std::ostream &operator<<(std::ostream &out, const Automaton &automaton) {
-            bool separator = false;
-
-            for (auto i = automaton._trans.begin(); i != automaton._trans.end(); i++) {
-                for (auto j = i->second.begin(); j != i->second.end(); j++) {
-                    if (separator) {
-                        out << std::endl;
-                    }
-                    out << *j;
-                    separator = true;
-                }
-            }
-
-            return out;
-        }
-
+    inline void Automaton::add_state(const std::string &state_label) {
+        State state(state_label);
+        _states.insert({state_label, state});
     }
-} // namespace model::fsm
 
+    inline void Automaton::set_initial(const std::string &state_label) {
+        _initial_states.insert(state_label);
+    }
+
+    inline void Automaton::set_final(const std::string &state_label, unsigned final_set_index) {
+        _final_states[final_set_index].insert(state_label);
+    }
+
+    inline void Automaton::add_trans(
+            const std::string &source,
+            const std::set<std::string> &symbol,
+            const std::string &target) {
+
+        auto s = _states.find(source);
+        auto t = _states.find(target);
+
+        Transition trans(s->second, symbol, t->second);
+        _transitions[source].push_back(trans);
+    }
+
+    std::ostream& operator <<(std::ostream &out, const Automaton &automaton) {
+        bool separator;
+
+        out << "S0 = {";
+        separator = false;
+        for (const auto &state: automaton._initial_states) {
+            out << (separator ? ", " : " ") << state;
+        }
+        out << "}" << std::endl;
+
+        for (const auto &entry: automaton._final_states) {
+            out << "F" << entry.first << " = {";
+            separator = false;
+            for (const auto &state: entry.second) {
+                out << (separator ? ", " : " ") << state;
+            }
+            out << "}" << std::endl;
+        }
+
+        out << "T = {" << std::endl;
+        separator = false;
+        for (const auto &entry: automaton._transitions) {
+            for (const auto &transition: entry.second) {
+                out << (separator ? "\n" : "") << "  " << transition;
+                separator = true;
+            }
+        }
+        out << std::endl << "}";
+
+        return out;
+    }
+
+} // namespace model::fsm
