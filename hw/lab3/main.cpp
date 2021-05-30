@@ -213,16 +213,13 @@ void makeRollBack(stack<int> &assignments, stack<DecisionItem> &decisions, const
         if (decision.value == State::T) {
             decision.value = State::F;
             values.at(abs(decision.literal) - 1) = State::F;
-        } else {
-//            Иначе мы уже проводили манипуляции с данным элементом и откатываться стоит еще чуть выше
-            assignments.pop();
-            decisions.pop();
-            values.at(abs(decision.literal) - 1) = State::NotChecked;
-
-            if (!decisions.empty()) {
-                makeRollBack(assignments, decisions, clauses, values);
-            }
+            return;
         }
+
+//            Иначе мы уже проводили манипуляции с данным элементом и откатываться стоит еще чуть выше
+        assignments.pop();
+        decisions.pop();
+        values.at(abs(decision.literal) - 1) = State::NotChecked;
     } while (!decisions.empty());
 }
 
@@ -285,11 +282,11 @@ int main() {
 // 87 sec best
 //    string filename = "/home/vladimir/MSU/kamkin/hw/lab3/data/hanoi/hanoi4.cnf";
 //    5 milli best
-    string filename = "/home/vladimir/MSU/kamkin/hw/lab3/data/sat20/uf20-01.cnf";
+//    string filename = "/home/vladimir/MSU/kamkin/hw/lab3/data/sat20/uf20-01.cnf";
 //  53 milli best
 //    string filename = "/home/vladimir/MSU/kamkin/hw/lab3/data/unsat50/uuf50-01.cnf";
 // 413 milli best
-//    string filename = "/home/vladimir/MSU/kamkin/hw/lab3/data/unsat100/uuf100-01.cnf";
+    string filename = "/home/vladimir/MSU/kamkin/hw/lab3/data/unsat100/uuf100-01.cnf";
 
 //    Почитаем файлик DIMACS
     ifstream fin(filename);
